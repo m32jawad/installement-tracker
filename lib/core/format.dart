@@ -58,3 +58,18 @@ String fillTemplate(String template,
 const defaultReminderTemplate =
     'Assalam-o-Alaikum [Name], your installment of [Amount] for [Item] is due on [Date]. '
     'Please pay on time. Thank you - [Shop Name]';
+
+/// Case-insensitive search across text fields; digit-only queries also match
+/// phone / CNIC / IMEI regardless of dashes and spaces.
+bool matchesQuery(String query, Iterable<String?> fields) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return true;
+  final qDigits = q.replaceAll(RegExp(r'\D'), '');
+  final digitQuery = qDigits.isNotEmpty && qDigits.length == q.replaceAll(RegExp(r'[\s-]'), '').length;
+  for (final f in fields) {
+    if (f == null || f.isEmpty) continue;
+    if (f.toLowerCase().contains(q)) return true;
+    if (digitQuery && f.replaceAll(RegExp(r'\D'), '').contains(qDigits)) return true;
+  }
+  return false;
+}

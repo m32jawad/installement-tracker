@@ -1,122 +1,115 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:sqflite/sqflite.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'core/app_log.dart';
+import 'data/app_state.dart';
+import 'data/database.dart';
+import 'data/photo_store.dart';
+import 'ui/lock.dart';
+import 'ui/screens/home_shell.dart';
+import 'ui/screens/onboarding.dart';
+import 'ui/theme.dart';
+
+/// Opens the database in the app's private folder. Also used after a restore.
+Future<AppState> openAppState() async {
+  final docs = await getApplicationDocumentsDirectory();
+  final dbPath = p.join(await getDatabasesPath(), dbFileName);
+  final db = await openAppDatabase(dbPath);
+  final app = AppState(db, PhotoStore(Directory(p.join(docs.path, 'photos'))));
+  await app.load();
+  return app;
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+Future<void> main() async {
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    final docs = await getApplicationDocumentsDirectory();
+    await AppLog.init(docs.path);
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      AppLog.error('Flutter error: ${details.exceptionAsString()}', null, details.stack);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      AppLog.error('Uncaught platform error', error, stack);
+      return true;
+    };
+    AppLog.info('App start');
+    final app = await openAppState();
+    AppLockController.instance.init(hasPin: () => app.hasPin);
+    runApp(InstallmentApp(initial: app));
+  }, (error, stack) => AppLog.error('Uncaught zone error', error, stack));
+}
 
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+/// Holds the current [AppState] so a backup restore can swap it out.
+class AppHolder extends ChangeNotifier {
+  AppState app;
+  AppHolder(this.app);
+
+  Future<void> reopen() async {
+    final old = app;
+    app = await openAppState();
+    notifyListeners();
+    // Let the widget tree rebuild with the new state before disposing the old one.
+    WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class InstallmentApp extends StatefulWidget {
+  final AppState initial;
+  const InstallmentApp({super.key, required this.initial});
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<InstallmentApp> createState() => _InstallmentAppState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+class _InstallmentAppState extends State<InstallmentApp> {
+  late final holder = AppHolder(widget.initial);
 
   @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+  Widget build(BuildContext context) => ChangeNotifierProvider.value(
+        value: holder,
+        child: Consumer<AppHolder>(
+          builder: (context, h, _) => ChangeNotifierProvider<AppState>.value(
+            value: h.app,
+            child: ChangeNotifierProvider.value(
+              value: AppLockController.instance,
+              child: const _Root(),
             ),
-          ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
+      );
+}
+
+class _Root extends StatelessWidget {
+  const _Root();
+
+  ThemeMode _mode(String s) => switch (s) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final lock = context.watch<AppLockController>();
+    return MaterialApp(
+      title: 'Installment Tracker',
+      debugShowCheckedModeBanner: false,
+      theme: buildTheme(Brightness.light),
+      darkTheme: buildTheme(Brightness.dark),
+      themeMode: _mode(app.themeMode),
+      home: app.onboarded ? const HomeShell() : const OnboardingScreen(),
+      builder: (context, child) => Stack(children: [
+        if (child != null) child,
+        if (lock.locked && app.hasPin) const Positioned.fill(child: LockScreen()),
+      ]),
     );
   }
 }
