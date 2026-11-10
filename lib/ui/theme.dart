@@ -75,7 +75,7 @@ ThemeData buildTheme(Brightness b) {
       backgroundColor: light ? brandGreen : const Color(0xFF17201C),
       foregroundColor: Colors.white,
       centerTitle: false,
-      titleTextStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
+      titleTextStyle: const TextStyle(fontFamily: 'Roboto', fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
     ),
     cardTheme: CardThemeData(
       elevation: light ? 1.5 : 0,
@@ -93,7 +93,7 @@ ThemeData buildTheme(Brightness b) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(64, 50),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontFamily: 'Roboto', fontSize: 16, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
@@ -105,7 +105,7 @@ ThemeData buildTheme(Brightness b) {
     ),
     navigationBarTheme: NavigationBarThemeData(
       height: 66,
-      labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+      labelTextStyle: WidgetStateProperty.all(const TextStyle(fontFamily: 'Roboto', fontSize: 12, fontWeight: FontWeight.w500)),
     ),
   );
 }

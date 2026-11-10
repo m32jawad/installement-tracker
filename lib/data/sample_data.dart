@@ -140,6 +140,7 @@ Future<void> loadSampleData(AppState app) async {
   await payInst(s3, 1, 5000, s3i[0].dueDate.add(const Duration(days: 3)), 'Cash');
   await app.setSkipped(s3i[1].id, true, reason: 'Out of city');
   await payInst(s3, 3, 3000, s3i[2].dueDate.add(const Duration(days: 1)), 'Easypaisa');
+  await payInst(s3, 3, 2000, t, 'Cash'); // rest of the partial, collected today
 
   final s5i = app.installmentsBySale[s5]!;
   await payInst(s5, 1, 2000, s5i[0].dueDate, 'Cash');
